@@ -57,14 +57,31 @@ flask run
 
 FarmTasks/
 ├── app/
-│ ├── main/ # Main application routes
-│ ├── installer/ # Installation wizard
-│ ├── templates/ # HTML templates
-│ ├── static/ # CSS, JS files
-│ ├── models.py # Database models
-│ └── utils.py # Utility functions
-├── docker/ # Docker configuration
-└── instance/ # Instance configuration
+│   ├── main/           # Main application routes
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── installer/      # Installation wizard
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── templates/      # HTML templates
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── day_templates/
+│   │   └── tasks/
+│   ├── static/        # CSS, JS files
+│   │   └── css/
+│   │       └── style.css
+│   ├── __init__.py    # Application factory
+│   ├── extensions.py  # Flask extensions
+│   ├── models.py      # Database models
+│   └── utils.py       # Utility functions
+├── docker/
+│   └── docker-compose.yml
+├── instance/          # Instance configuration
+│   └── config.py
+├── reset_installation.py  # Installation reset script
+├── requirements.txt      # Python dependencies
+└── run.py               # Application entry point
 
 
 ## Development
