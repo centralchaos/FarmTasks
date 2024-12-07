@@ -31,10 +31,6 @@ ENV/
 instance/
 .webassets-cache
 
-# Database
-*.db
-*.sqlite3
-
 # IDE
 .idea/
 .vscode/
