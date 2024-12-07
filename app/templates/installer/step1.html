@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="installer-container">
+    <h1>FarmTasks Installation</h1>
+    <h2>Step 1: Database Configuration</h2>
+    
+    <form method="POST" class="installer-form">
+        <input type="hidden" name="step" value="1">
+        
+        <div class="form-group">
+            <label for="db_type">Database Type:</label>
+            <select id="db_type" name="db_type" required>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+                <option value="sqlite">SQLite</option>
+            </select>
+        </div>
+
+        <div class="form-group db-details">
+            <label for="db_host">Database Host:</label>
+            <input type="text" id="db_host" name="db_host" value="localhost">
+        </div>
+
+        <div class="form-group db-details">
+            <label for="db_user">Database User:</label>
+            <input type="text" id="db_user" name="db_user">
+        </div>
+
+        <div class="form-group db-details">
+            <label for="db_password">Database Password:</label>
+            <input type="password" id="db_password" name="db_password">
+        </div>
+
+        <div class="form-group">
+            <label for="db_name">Database Name:</label>
+            <input type="text" id="db_name" name="db_name" required>
+        </div>
+
+        <button type="submit" class="btn-primary">Next</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('db_type').addEventListener('change', function() {
+    const dbDetails = document.querySelectorAll('.db-details');
+    if (this.value === 'sqlite') {
+        dbDetails.forEach(el => el.style.display = 'none');
+    } else {
+        dbDetails.forEach(el => el.style.display = 'block');
+    }
+});
+</script>
+{% endblock %} 

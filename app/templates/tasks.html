@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Task Templates</h1>
+
+<form method="POST" class="task-form">
+    <h2>Create New Task Template</h2>
+    <div>
+        <label for="title">Title:</label>
+        <input type="text" id="title" name="title" required>
+    </div>
+    <div>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description"></textarea>
+    </div>
+    <button type="submit">Create Task Template</button>
+</form>
+
+<h2>Existing Task Templates</h2>
+<div class="templates-list">
+    <table class="templates-table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td>{{ task.title }}</td>
+                <td>{{ task.description }}</td>
+                <td class="actions-cell">
+                    <button class="action-button edit">Edit</button>
+                    <button class="action-button delete">Delete</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %} 

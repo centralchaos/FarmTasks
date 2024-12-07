@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="reports-dashboard">
+    <h1>Task Reports</h1>
+    
+    <!-- Today's Overview -->
+    <div class="report-section">
+        <h2>Today's Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ today_stats.total }}</div>
+                <div class="stat-label">Total Tasks</div>
+            </div>
+            <div class="stat-card completed">
+                <div class="stat-value">{{ today_stats.completed }}</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="stat-value">{{ today_stats.pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+        </div>
+
+        {% if today_stats.tasks %}
+        <div class="tasks-list">
+            <h3>Today's Tasks</h3>
+            <table class="reports-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Assigned To</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in today_stats.tasks %}
+                    <tr class="{% if task.completed %}completed{% endif %}">
+                        <td>{{ task.task.title }}</td>
+                        <td>{{ task.assignee.username }}</td>
+                        <td>{{ task.scheduled_time.strftime('%-I:%M %p') if task.scheduled_time }}</td>
+                        <td>
+                            {% if task.completed %}
+                            Completed at {{ task.completed_at.strftime('%-I:%M %p') }}
+                            {% else %}
+                            Pending
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="no-tasks">No tasks scheduled for today</p>
+        {% endif %}
+    </div>
+
+    <!-- Weekly Overview -->
+    <div class="report-section">
+        <h2>Weekly Overview ({{ week_stats.start_date.strftime('%Y-%m-%d') }} to {{ week_stats.end_date.strftime('%Y-%m-%d') }})</h2>
+        
+        <!-- Weekly Progress -->
+        <div class="progress-section">
+            {% if week_stats.total > 0 %}
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ (week_stats.completed / week_stats.total * 100)|round(1) }}%">
+                    {{ (week_stats.completed / week_stats.total * 100)|round(1) }}%
+                </div>
+            </div>
+            {% else %}
+            <div class="progress-bar">
+                <div class="progress" style="width: 0%">0%</div>
+            </div>
+            {% endif %}
+            <div class="progress-stats">
+                {{ week_stats.completed }} of {{ week_stats.total }} tasks completed
+            </div>
+        </div>
+
+        <!-- Daily Stats -->
+        <div class="daily-stats">
+            <h3>Daily Completion</h3>
+            <div class="daily-chart">
+                {% for date, stats in daily_stats.items() %}
+                <div class="day-stat">
+                    <div class="day-label">{{ date.strftime('%a') }}</div>
+                    <div class="day-bar">
+                        {% if stats.total > 0 %}
+                        <div class="day-progress" style="height: {{ (stats.completed / stats.total * 100)|round(1) }}%"></div>
+                        {% else %}
+                        <div class="day-progress" style="height: 0%"></div>
+                        {% endif %}
+                    </div>
+                    <div class="day-value">{{ stats.completed }}/{{ stats.total }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- User Performance -->
+        {% if user_stats %}
+        <div class="user-stats">
+            <h3>User Performance</h3>
+            <div class="user-grid">
+                {% for stats in user_stats.values() %}
+                <div class="user-card">
+                    <div class="user-name">{{ stats.user.username }}</div>
+                    <div class="user-progress">
+                        <div class="progress-bar">
+                            {% if stats.total > 0 %}
+                            <div class="progress" style="width: {{ (stats.completed / stats.total * 100)|round(1) }}%"></div>
+                            {% else %}
+                            <div class="progress" style="width: 0%"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-numbers">
+                        {{ stats.completed }}/{{ stats.total }} tasks completed
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add this section after Weekly Overview -->
+    <div class="report-section">
+        <h2>Task Categories</h2>
+        <div class="category-grid">
+            {% for stats in category_stats.values() %}
+            <div class="category-card">
+                <h3>{{ stats.name }}</h3>
+                <div class="category-stats">
+                    <div class="progress-bar">
+                        {% if stats.total > 0 %}
+                        <div class="progress" style="width: {{ (stats.completed / stats.total * 100)|round(1) }}%"></div>
+                        {% else %}
+                        <div class="progress" style="width: 0%"></div>
+                        {% endif %}
+                    </div>
+                    <div class="stats-numbers">
+                        {{ stats.completed }}/{{ stats.total }} tasks completed
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="report-section">
+        <h2>Task Priorities</h2>
+        <div class="priority-grid">
+            {% for priority, stats in priority_stats.items() %}
+            <div class="priority-card priority-{{ priority }}">
+                <h3>{{ priority|title }}</h3>
+                <div class="priority-stats">
+                    <div class="progress-bar">
+                        {% if stats.total > 0 %}
+                        <div class="progress" style="width: {{ (stats.completed / stats.total * 100)|round(1) }}%"></div>
+                        {% else %}
+                        <div class="progress" style="width: 0%"></div>
+                        {% endif %}
+                    </div>
+                    <div class="stats-numbers">
+                        {{ stats.completed }}/{{ stats.total }} tasks completed
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="report-section">
+        <h2>Time Analysis</h2>
+        <div class="time-stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ (week_stats.total_duration / 60)|round(1) }}</div>
+                <div class="stat-label">Total Hours Planned</div>
+            </div>
+            <div class="stat-card completed">
+                <div class="stat-value">{{ (week_stats.completed_duration / 60)|round(1) }}</div>
+                <div class="stat-label">Hours Completed</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

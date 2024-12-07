@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="day-template-edit">
+    {% if is_admin %}
+    <!-- Template Details Form - Always visible -->
+    <div class="template-details">
+        <form method="POST" action="{{ url_for('main.edit_template_details', template_id=template.id) }}" class="details-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Template Name:</label>
+                    <input type="text" id="name" name="name" value="{{ template.name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description">{{ template.description }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="assigned_date">Assigned Date:</label>
+                    <input type="date" id="assigned_date" name="assigned_date" 
+                           value="{{ template.assigned_date.strftime('%Y-%m-%d') if template.assigned_date else '' }}">
+                </div>
+
+                <button type="submit" class="save-button">Save Changes</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="template-workspace">
+        <!-- Available Tasks (Post-it Notes) -->
+        <div class="tasks-palette">
+            <h2>Available Tasks</h2>
+            <div class="post-it-container">
+                {% for task in tasks %}
+                <div class="post-it" 
+                     draggable="true" 
+                     data-task-id="{{ task.id }}"
+                     data-task-title="{{ task.title }}">
+                    <h3>{{ task.title }}</h3>
+                    <p>{{ task.description }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Schedule Grid -->
+        <div class="schedule-grid">
+            <div class="schedule-header">
+                <h2>Daily Schedule</h2>
+                <!-- User Filter -->
+                <div class="user-filter">
+                    <label for="filter-user">Filter by User:</label>
+                    <select id="filter-user" onchange="filterTasks()">
+                        <option value="">All Users</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="time-slots">
+                {% for h in range(24) %}
+                {% set hour = (h + 6) % 24 %}
+                <div class="time-slot" 
+                     data-hour="{{ hour }}"
+                     ondragover="allowDrop(event)"
+                     ondrop="drop(event)">
+                    <div class="time-label">
+                        {{ '%d:%02d %s'|format(
+                            (hour % 12) if (hour % 12) != 0 else 12,
+                            0,
+                            'AM' if hour < 12 else 'PM'
+                        ) }}
+                    </div>
+                    <div class="tasks-container">
+                        {% for assignment in template.task_assignments %}
+                        {% if assignment.scheduled_hour == hour %}
+                        <div class="scheduled-task post-it-mini {% if assignment.completed %}completed{% endif %}"
+                             draggable="true"
+                             data-assignment-id="{{ assignment.id }}"
+                             data-task-id="{{ assignment.task_id }}"
+                             data-user-id="{{ assignment.user_id or '' }}">
+                            <span class="task-title">{{ assignment.task.title }}</span>
+                            <span class="task-time">
+                                {{ '%d:%02d %s'|format(
+                                    (assignment.scheduled_hour % 12) if (assignment.scheduled_hour % 12) != 0 else 12,
+                                    assignment.scheduled_minute,
+                                    'AM' if assignment.scheduled_hour < 12 else 'PM'
+                                ) }}
+                            </span>
+                            {% if assignment.user %}
+                            <span class="task-user">{{ assignment.user.username }}</span>
+                            {% endif %}
+                            <div class="task-actions">
+                                {% if not assignment.completed %}
+                                    {% if assignment.user_id == current_user.id or current_user.is_admin() %}
+                                    <form method="POST" 
+                                          action="{{ url_for('main.complete_template_task', assignment_id=assignment.id) }}"
+                                          class="inline-form">
+                                        <button type="submit" class="complete-button">Complete</button>
+                                    </form>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="completed-text">
+                                        Completed at {{ assignment.completed_at.strftime('%-I:%M %p') }}
+                                        by {{ assignment.completed_by.username }}
+                                    </span>
+                                {% endif %}
+
+                                {% if current_user.is_admin() %}
+                                    <!-- Admin can assign to anyone -->
+                                    <select class="user-assign" onchange="assignUser('{{ assignment.id }}', this.value)">
+                                        <option value="">Assign User</option>
+                                        {% for user in users %}
+                                        <option value="{{ user.id }}" 
+                                                {% if assignment.user_id == user.id %}selected{% endif %}>
+                                            {{ user.username }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                {% elif not assignment.user_id %}
+                                    <!-- Unassigned task - user can assign to themselves -->
+                                    <button onclick="assignUser('{{ assignment.id }}', '{{ current_user.id }}')" 
+                                            class="assign-self-button">
+                                        Assign to me
+                                    </button>
+                                {% endif %}
+
+                                {% if current_user.is_admin() %}
+                                    <button onclick="removeTask('{{ template.id }}', '{{ assignment.id }}')" 
+                                            class="remove-button">×</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showEditDetailsForm() {
+    document.getElementById('editDetailsForm').style.display = 'block';
+}
+
+function hideEditDetailsForm() {
+    document.getElementById('editDetailsForm').style.display = 'none';
+}
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    const taskId = ev.target.getAttribute('data-task-id');
+    const taskTitle = ev.target.getAttribute('data-task-title');
+    ev.dataTransfer.setData("taskId", taskId);
+    ev.dataTransfer.setData("taskTitle", taskTitle);
+}
+
+function drop(ev) {
+    ev.preventDefault();
+    const timeSlot = ev.target.closest('.time-slot');
+    if (!timeSlot) return;
+
+    const hour = timeSlot.getAttribute('data-hour');
+    const taskId = ev.dataTransfer.getData("taskId");
+    
+    // Send AJAX request to add task
+    fetch(`{{ url_for('main.edit_day_template', template_id=template.id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `task_id=${taskId}&hour=${hour}&minute=0`
+    })
+    .then(response => response.text())
+    .then(() => {
+        // Reload page to show updated schedule
+        window.location.reload();
+    });
+}
+
+function removeTask(templateId, assignmentId) {
+    if (confirm('Are you sure you want to remove this task?')) {
+        fetch(`/day_templates/${templateId}/remove_task/${assignmentId}`, {
+            method: 'POST'
+        })
+        .then(() => {
+            window.location.reload();
+        });
+    }
+}
+
+function assignUser(assignmentId, userId) {
+    fetch(`/day_templates/assign_user/${assignmentId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `user_id=${userId}`
+    })
+    .then(response => response.text())
+    .then(() => {
+        window.location.reload();
+    });
+}
+
+function filterTasks() {
+    const userId = document.getElementById('filter-user').value;
+    const tasks = document.querySelectorAll('.scheduled-task');
+    
+    tasks.forEach(task => {
+        if (!userId || task.getAttribute('data-user-id') === userId) {
+            task.style.display = 'block';
+        } else {
+            task.style.display = 'none';
+        }
+    });
+}
+
+// Add drag event listeners to post-it notes
+document.querySelectorAll('.post-it').forEach(postIt => {
+    postIt.addEventListener('dragstart', drag);
+});
+
+document.querySelectorAll('.post-it-mini').forEach(postIt => {
+    postIt.addEventListener('dragstart', drag);
+});
+</script>
+{% endblock %} 

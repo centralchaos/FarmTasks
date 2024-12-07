@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Farm Tasks - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav>
+        {% if current_user.is_authenticated %}
+            <div class="nav-section">
+                <a href="{{ url_for('main.dashboard') }}" class="nav-link">Dashboard</a>
+                {% if current_user.is_admin() %}
+                    <a href="{{ url_for('main.tasks') }}" class="nav-link">Manage Tasks</a>
+                    <a href="{{ url_for('main.manage_users') }}" class="nav-link">Manage Users</a>
+                    <a href="{{ url_for('main.day_templates') }}" class="nav-link">Day Templates</a>
+                {% endif %}
+            </div>
+            <div class="nav-section">
+                <span class="user-info">{{ current_user.username }} ({{ current_user.role }})</span>
+                <a href="{{ url_for('main.logout') }}" class="nav-link">Logout</a>
+            </div>
+        {% else %}
+            <div class="nav-section">
+                <a href="{{ url_for('main.login') }}" class="nav-link">Login</a>
+            </div>
+        {% endif %}
+    </nav>
+    
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

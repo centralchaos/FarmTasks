@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Day Templates{% endblock %}
+
+{% block content %}
+<div class="day-templates-section">
+    <div class="section-header">
+        <h1>Day Templates</h1>
+        {% if is_admin %}
+        <button onclick="showCreateTemplateForm()" class="create-button">Create Template</button>
+        {% endif %}
+    </div>
+
+    <!-- Create Template Form -->
+    {% if is_admin %}
+    <form method="POST" class="template-form" id="createTemplateForm" style="display: none;">
+        <h2>Create New Day Template</h2>
+        <div>
+            <label for="name">Template Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" name="description"></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="submit">Create Template</button>
+            <button type="button" onclick="hideCreateTemplateForm()" class="cancel-button">Cancel</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+        <select id="bulk-action" class="action-select">
+            <option value="">- Select Action -</option>
+            <option value="delete">Delete Selected</option>
+            <option value="duplicate">Duplicate Selected</option>
+        </select>
+        <button onclick="applyBulkAction()" class="action-button">Apply to selected items</button>
+        <span id="selected-count">(No items selected)</span>
+    </div>
+
+    <!-- Templates Table -->
+    <div class="templates-table-container">
+        <table class="templates-table">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="select-all" onclick="toggleAllCheckboxes()"></th>
+                    <th>Status</th>
+                    <th>Template Name</th>
+                    <th>Created At</th>
+                    <th>Assigned Date</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for template in templates %}
+                <tr>
+                    <td>
+                        <input type="checkbox" class="template-checkbox" value="{{ template.id }}">
+                    </td>
+                    <td>
+                        <span class="status-indicator {% if template.assigned_date %}active{% endif %}">
+                            {% if template.assigned_date %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ template.name }}</td>
+                    <td>{{ template.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ template.assigned_date.strftime('%Y-%m-%d') if template.assigned_date else 'Not assigned' }}</td>
+                    <td>{{ template.description }}</td>
+                    <td class="actions-cell">
+                        <div class="actions-wrapper">
+                            <a href="{{ url_for('main.edit_day_template', template_id=template.id) }}" 
+                               class="action-button edit">{% if is_admin %}Edit{% else %}View{% endif %}</a>
+                            
+                            {% if is_admin %}
+                            <form method="POST" 
+                                  action="{{ url_for('main.apply_day_template', template_id=template.id) }}"
+                                  class="inline-form">
+                                <div class="apply-group">
+                                    <input type="date" name="date" required class="date-input">
+                                    <select name="user_id" required class="user-select">
+                                        {% for user in users %}
+                                        <option value="{{ user.id }}">{{ user.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="action-button apply">Apply</button>
+                                </div>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showCreateTemplateForm() {
+    document.getElementById('createTemplateForm').style.display = 'block';
+}
+
+function hideCreateTemplateForm() {
+    document.getElementById('createTemplateForm').style.display = 'none';
+}
+
+function toggleAllCheckboxes() {
+    const mainCheckbox = document.getElementById('select-all');
+    const checkboxes = document.getElementsByClassName('template-checkbox');
+    for (let checkbox of checkboxes) {
+        checkbox.checked = mainCheckbox.checked;
+    }
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.getElementsByClassName('template-checkbox');
+    const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    document.getElementById('selected-count').textContent = 
+        selectedCount === 0 ? '(No items selected)' : 
+        `(${selectedCount} item${selectedCount === 1 ? '' : 's'} selected)`;
+}
+
+function applyBulkAction() {
+    const action = document.getElementById('bulk-action').value;
+    if (!action) {
+        alert('Please select an action');
+        return;
+    }
+
+    const selectedIds = Array.from(document.getElementsByClassName('template-checkbox'))
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+    if (selectedIds.length === 0) {
+        alert('Please select at least one template');
+        return;
+    }
+
+    // Different confirmation messages and URLs based on action
+    let confirmMessage = '';
+    let actionUrl = '';
+    
+    if (action === 'delete') {
+        confirmMessage = 'Are you sure you want to delete the selected templates?';
+        actionUrl = "{{ url_for('main.bulk_delete_templates') }}";
+    } else if (action === 'duplicate') {
+        confirmMessage = 'Are you sure you want to duplicate the selected templates?';
+        actionUrl = "{{ url_for('main.bulk_duplicate_templates') }}";
+    }
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // Create and submit form for the action
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = actionUrl;
+
+    // Add CSRF token if using Flask-WTF
+    {% if csrf_token %}
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrf_token';
+    csrfInput.value = "{{ csrf_token() }}";
+    form.appendChild(csrfInput);
+    {% endif %}
+
+    selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'template_ids[]';
+        input.value = id;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// Add event listeners to checkboxes
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.getElementsByClassName('template-checkbox');
+    for (let checkbox of checkboxes) {
+        checkbox.addEventListener('change', updateSelectedCount);
+    }
+});
+</script>
+{% endblock %} 

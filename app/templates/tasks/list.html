@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Task Templates{% endblock %}
+
+{% block content %}
+<div class="tasks-section">
+    <div class="section-header">
+        <h1>Existing Task Templates</h1>
+        <button onclick="showCreateTaskForm()" class="create-button">Create Task</button>
+    </div>
+
+    <!-- Create Task Form -->
+    <form method="POST" class="task-form" id="createTaskForm" style="display: none;">
+        <h2>Create New Task Template</h2>
+        <div class="form-group">
+            <label for="title">Task Title:</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <textarea id="description" name="description"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="category">Category:</label>
+            <select id="category" name="category_id">
+                <option value="">No Category</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="priority">Priority:</label>
+            <select id="priority" name="priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Estimated Duration (minutes):</label>
+            <input type="number" id="duration" name="estimated_duration" min="0">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Create Task</button>
+            <button type="button" onclick="hideCreateTaskForm()" class="btn-secondary">Cancel</button>
+        </div>
+    </form>
+
+    <!-- Tasks Table -->
+    <div class="templates-table-container">
+        <table class="templates-table">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="select-all"></th>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Duration</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td><input type="checkbox" class="task-checkbox" value="{{ task.id }}"></td>
+                    <td>{{ task.id }}</td>
+                    <td>{{ task.title }}</td>
+                    <td>{{ task.description }}</td>
+                    <td>Template</td>
+                    <td>{{ task.category.name if task.category else '-' }}</td>
+                    <td>
+                        <span class="priority-badge priority-{{ task.priority }}">
+                            {{ task.priority|title }}
+                        </span>
+                    </td>
+                    <td>{{ task.estimated_duration|default('-', true) }}</td>
+                    <td class="actions-cell">
+                        <div class="actions-wrapper">
+                            <a href="{{ url_for('main.edit_task', task_id=task.id) }}" class="action-button edit">Edit</a>
+                            <form method="POST" 
+                                  action="{{ url_for('main.delete_task', task_id=task.id) }}" 
+                                  style="display: inline;">
+                                <button type="submit" 
+                                        class="action-button delete" 
+                                        onclick="return confirm('Are you sure you want to delete this task?');">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showCreateTaskForm() {
+    document.getElementById('createTaskForm').style.display = 'block';
+}
+
+function hideCreateTaskForm() {
+    document.getElementById('createTaskForm').style.display = 'none';
+}
+</script>
+{% endblock %} 
