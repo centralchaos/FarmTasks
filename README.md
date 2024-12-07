@@ -57,34 +57,34 @@ flask run
 
 FarmTasks/
 ├── app/
-│ ├── main/ # Main application routes
-│ │ ├── init.py
+│ ├── main/                    # Main application routes
+│ │ ├── __init__.py
 │ │ └── routes.py
-│ ├── installer/ # Installation wizard
-│ │ ├── init.py
+│ ├── installer/               # Installation wizard
+│ │ ├── __init__.py
 │ │ └── routes.py
-│ ├── templates/ # HTML templates
+│ ├── templates/               # HTML templates
 │ │ ├── base.html
 │ │ ├── dashboard.html
 │ │ ├── day_templates/
 │ │ └── tasks/
-│ ├── static/ # CSS, JS files
+│ ├── static/                  # CSS, JS files
 │ │ └── css/
 │ │ └── style.css
-│ ├── init.py # Application factory
-│ ├── extensions.py # Flask extensions
-│ ├── models.py # Database models
-│ └── utils.py # Utility functions
-├── docker-compose.yml # Docker configuration
-├── instance/ # Instance configuration
+│ ├── __init__.py             # Application factory
+│ ├── extensions.py           # Flask extensions
+│ ├── models.py               # Database models
+│ └── utils.py                # Utility functions
+├── docker-compose.yml          # Docker configuration
+├── instance/                   # Instance configuration
 │ └── config.py
-├── reset_installation.py # Installation reset script
-├── requirements.txt # Python dependencies
-└── run.py # Application entry point
+├── reset_installation.py      # Installation reset script
+├── requirements.txt           # Python dependencies
+└── run.py                    # Application entry point
 
 
 ## Development
-- Reset installation: `python reset_installation.py`
+- Reset installation:python reset_installation.py`
 - Database migrations: `flask db upgrade`
 - Run tests: `python -m pytest`
 
@@ -99,4 +99,4 @@ FarmTasks/
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Authors
-- centralchaos / Jose Carlo Sia
+- centralchaos / Jose Carlo Sia `
