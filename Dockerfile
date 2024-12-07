@@ -15,15 +15,19 @@ RUN mkdir instance && chmod 777 instance
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Verify gunicorn is installed
+RUN pip show gunicorn || pip install gunicorn
+
 # Copy the rest of the application
 COPY . .
 
 # Set environment variables
 ENV FLASK_APP=run.py
-ENV FLASK_ENV=development
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 5000
 
 # Command to run the application
-CMD ["flask", "run", "--host=0.0.0.0"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "run:app"] 
