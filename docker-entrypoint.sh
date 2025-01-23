@@ -6,16 +6,16 @@ echo "Waiting for PostgreSQL..."
 echo "Attempting to connect to: $SQLALCHEMY_DATABASE_URI"
 
 # Add more verbose output to the connection attempts
-until PGPASSWORD=farmtasks psql -h db -U farmtasks -d farmtasks_db -c '\l' 2>/dev/null; do
-  echo "`date` - Still waiting for postgres... (db host: db, user: farmtasks, database: farmtasks_db)"
+until PGPASSWORD=farmtasks psql -h localhost -U farmtasks -d farmtasks_db -p 5433 -c '\l' 2>/dev/null; do
+  echo "`date` - Still waiting for postgres... (db host: localhost, user: farmtasks, database: farmtasks_db)"
   sleep 2
 done
 
 echo "PostgreSQL is up - executing command"
 
-# Add after PostgreSQL is up
+# Test database connection
 echo "Testing database connection..."
-PGPASSWORD=farmtasks psql -h db -U farmtasks -d farmtasks_db -c "SELECT 1" || {
+PGPASSWORD=farmtasks psql -h localhost -U farmtasks -d farmtasks_db -p 5433 -c "SELECT 1" || {
     echo "Failed to execute test query"
     exit 1
 }
