@@ -6,6 +6,7 @@ from app.extensions import db
 from datetime import datetime, date, time
 from functools import wraps
 from flask import abort
+from sqlalchemy.orm import joinedload
 
 def admin_required(f):
     @wraps(f)
@@ -18,23 +19,27 @@ def admin_required(f):
 @main.route('/')
 @login_required
 def dashboard():
-    today = date.today()
-    tasks = TaskAssignment.query.filter_by(
-        user_id=current_user.id,
-        scheduled_date=today
-    ).all()
+    # Get today's date
+    today = datetime.now().date()
     
-    # Get all templates with assigned dates
-    templates = DayTemplate.query.filter(DayTemplate.assigned_date.isnot(None)).all()
-    templates_json = [{
-        'id': t.id,
-        'name': t.name,
-        'assigned_date': t.assigned_date.strftime('%Y-%m-%d') if t.assigned_date else None
-    } for t in templates]
+    # Find template assigned for today with eager loading of task assignments and users
+    template = DayTemplate.query.filter_by(assigned_date=today)\
+        .options(
+            joinedload(DayTemplate.task_assignments)
+            .joinedload(DayTemplateTask.user)
+        ).first()
     
-    return render_template('dashboard.html', 
-                         tasks=tasks,
-                         templates=templates_json)  # Pass the JSON-serializable list
+    # Get all users for assignment dropdown
+    users = User.query.all()
+    
+    if template:
+        print(f"Found template: {template.name}")
+        print("Tasks:")
+        for task_assignment in template.task_assignments:
+            assigned_user = task_assignment.user.username if task_assignment.user else "Unassigned"
+            print(f"- {task_assignment.task.title} at {task_assignment.scheduled_hour}:{task_assignment.scheduled_minute} (Assigned to: {assigned_user})")
+    
+    return render_template('dashboard.html', template=template, users=users)
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
@@ -54,7 +59,10 @@ def tasks():
         task = Task(
             title=request.form['title'],
             description=request.form['description'],
-            is_template=True
+            is_template=True,
+            category_id=request.form.get('category_id'),
+            priority=request.form.get('priority', 'medium'),
+            estimated_duration=request.form.get('estimated_duration')
         )
         db.session.add(task)
         db.session.commit()
@@ -62,7 +70,11 @@ def tasks():
     
     tasks = Task.query.filter_by(is_template=True).all()
     users = User.query.filter_by(role='user').all()
-    return render_template('tasks/list.html', tasks=tasks, users=users)
+    categories = TaskCategory.query.all()
+    return render_template('tasks/list.html', 
+                         tasks=tasks, 
+                         users=users,
+                         categories=categories)
 
 @main.route('/logout')
 @login_required
@@ -132,7 +144,7 @@ def day_templates():
         db.session.add(template)
         db.session.commit()
         flash('Day template created successfully')
-        return redirect(url_for('main.edit_day_template', template_id=template.id))
+        return redirect(url_for('main.day_templates'))
     
     templates = DayTemplate.query.all()
     users = User.query.all()
@@ -249,6 +261,16 @@ def apply_day_template(template_id):
     try:
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         
+        # Check if another template is already assigned to this date
+        existing_template = DayTemplate.query.filter(
+            DayTemplate.assigned_date == target_date,
+            DayTemplate.id != template_id
+        ).first()
+        
+        if existing_template:
+            flash(f'Error: Date {date_str} is already assigned to template "{existing_template.name}"', 'error')
+            return redirect(url_for('main.day_templates'))
+        
         # Set the assigned date for the template
         template.assigned_date = target_date
         
@@ -328,7 +350,19 @@ def edit_template_details(template_id):
     # Handle assigned date
     assigned_date = request.form.get('assigned_date')
     if assigned_date:
-        template.assigned_date = datetime.strptime(assigned_date, '%Y-%m-%d').date()
+        new_date = datetime.strptime(assigned_date, '%Y-%m-%d').date()
+        
+        # Check if another template is already assigned to this date
+        existing_template = DayTemplate.query.filter(
+            DayTemplate.assigned_date == new_date,
+            DayTemplate.id != template_id  # Exclude current template
+        ).first()
+        
+        if existing_template:
+            flash(f'Error: Date {assigned_date} is already assigned to template "{existing_template.name}"', 'error')
+            return redirect(url_for('main.edit_day_template', template_id=template.id))
+            
+        template.assigned_date = new_date
     else:
         template.assigned_date = None
     
@@ -375,5 +409,67 @@ def complete_template_task(assignment_id):
     else:
         flash('You are not authorized to complete this task', 'error')
     
-    # Redirect back to the day template view
-    return redirect(url_for('main.edit_day_template', template_id=assignment.day_template_id)) 
+    # Redirect back to the referring page (dashboard or template)
+    return redirect(request.referrer or url_for('main.dashboard'))
+
+@main.route('/tasks/<int:task_id>/complete', methods=['POST'])
+@login_required
+def complete_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    task.completed = True
+    db.session.commit()
+    return redirect(url_for('main.dashboard')) 
+
+@main.route('/day_templates/assign_user/<int:task_id>', methods=['POST'])
+@login_required
+def assign_user_to_task(task_id):
+    """Assign a user to a task"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    task_assignment = DayTemplateTask.query.get_or_404(task_id)
+    
+    if user_id:
+        task_assignment.user_id = int(user_id)
+    else:
+        task_assignment.user_id = None
+        
+    db.session.commit()
+    return {'status': 'success'} 
+
+@main.route('/profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    """Edit user profile"""
+    if request.method == 'POST':
+        user = current_user
+        
+        # Update username if provided and different
+        new_username = request.form.get('username')
+        if new_username and new_username != user.username:
+            if User.query.filter_by(username=new_username).first():
+                flash('Username already exists', 'error')
+                return redirect(url_for('main.edit_profile'))
+            user.username = new_username
+            
+        # Update email if provided and different
+        new_email = request.form.get('email')
+        if new_email and new_email != user.email:
+            if User.query.filter_by(email=new_email).first():
+                flash('Email already exists', 'error')
+                return redirect(url_for('main.edit_profile'))
+            user.email = new_email
+            
+        # Update password if provided
+        new_password = request.form.get('new_password')
+        if new_password:
+            if not user.check_password(request.form.get('current_password', '')):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('main.edit_profile'))
+            user.set_password(new_password)
+            
+        db.session.commit()
+        flash('Profile updated successfully')
+        return redirect(url_for('main.edit_profile'))
+        
+    return render_template('profile.html') 

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="profile-edit">
+    <h1>Edit Profile</h1>
+    
+    <form method="POST" class="profile-form">
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" value="{{ current_user.username }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="{{ current_user.email }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="current_password">Current Password:</label>
+            <input type="password" id="current_password" name="current_password">
+            <small>Required only if changing password</small>
+        </div>
+
+        <div class="form-group">
+            <label for="new_password">New Password:</label>
+            <input type="password" id="new_password" name="new_password">
+            <small>Leave blank to keep current password</small>
+        </div>
+
+        <button type="submit" class="save-button">Save Changes</button>
+    </form>
+</div>
+{% endblock %} 

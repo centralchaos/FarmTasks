@@ -204,14 +204,17 @@ function assignUser(assignmentId, userId) {
     fetch(`/day_templates/assign_user/${assignmentId}`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
         },
-        body: `user_id=${userId}`
+        body: JSON.stringify({ user_id: userId })
     })
-    .then(response => response.text())
-    .then(() => {
-        window.location.reload();
-    });
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
 }
 
 function filterTasks() {

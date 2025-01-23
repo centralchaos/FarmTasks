@@ -137,16 +137,15 @@ class DayTemplateTask(db.Model):
     completed = db.Column(db.Boolean, default=False)
     completed_at = db.Column(db.DateTime)
     completed_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Add relationship to User
+    user = db.relationship('User', foreign_keys=[user_id])
+    completed_by = db.relationship('User', foreign_keys=[completed_by_id])
 
     @property
     def task(self):
         """Get the associated task"""
         return Task.query.get(self.task_id)
-
-    @property
-    def user(self):
-        """Get the assigned user if any"""
-        return User.query.get(self.user_id) if self.user_id else None
 
     @property
     def completed_by(self):

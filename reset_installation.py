@@ -16,14 +16,32 @@ def run_command(command, description):
 
 def main():
     # Stop and remove Docker containers and volumes
-    print("\n�� Resetting Docker environment...")
+    print("\n🧹 Resetting Docker environment...")
     run_command("docker-compose down -v", "Stopping and removing containers and volumes")
     
     # Remove instance folder
     print("\n🗑️ Cleaning up files...")
     if os.path.exists('instance'):
-        shutil.rmtree('instance')
-        print("✓ Removed instance folder")
+        try:
+            # First try to make files writable
+            for root, dirs, files in os.walk('instance'):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    os.chmod(file_path, 0o666)  # Make file writable
+                for dir in dirs:
+                    dir_path = os.path.join(root, dir)
+                    os.chmod(dir_path, 0o777)  # Make directory writable
+            
+            # Try regular removal first
+            try:
+                shutil.rmtree('instance')
+                print("✓ Removed instance folder")
+            except:
+                # If regular removal fails, try force remove with sudo
+                run_command("sudo rm -rf instance", "Force removing instance folder")
+        except PermissionError:
+            print("! Permission denied. Try running the script with sudo")
+            return
     
     # Remove SQLite databases
     for db_file in os.listdir('.'):

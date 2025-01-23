@@ -1,37 +1,40 @@
-from flask import Flask, redirect, url_for, request
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
 from app.extensions import db, login_manager
-from app.utils import check_installation
 import os
-import secrets
+import logging
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
     
-    # Generate a secure secret key if not exists
-    if not app.config.get('SECRET_KEY'):
-        app.config['SECRET_KEY'] = secrets.token_hex(32)
+    # Add debug logging
+    app.logger.setLevel(logging.DEBUG)
     
-    # Default configuration for initial setup
-    app.config.setdefault('SQLALCHEMY_DATABASE_URI', 'sqlite:///temp.db')
-    app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
+    # Configure from environment variables
+    db_uri = os.getenv('SQLALCHEMY_DATABASE_URI')
+    app.logger.debug(f"Using database URI: {db_uri}")
     
-    # Try to load custom configuration from instance folder
-    if os.path.exists(os.path.join(app.instance_path, 'config.py')):
-        app.config.from_pyfile('config.py')
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
     
-    db.init_app(app)
+    try:
+        # Initialize extensions
+        db.init_app(app)
+        with app.app_context():
+            # Test database connection
+            db.engine.connect()
+            app.logger.debug("Database connection successful")
+    except Exception as e:
+        app.logger.error(f"Database connection failed: {str(e)}")
+        raise
+    
     login_manager.init_app(app)
     login_manager.login_view = 'main.login'
     
-    @app.before_request
-    def check_installed():
-        if not check_installation() and request.endpoint != 'installer.install':
-            return redirect(url_for('installer.install'))
-    
+    # Register blueprints
     from app.main import main as main_blueprint
-    from app.installer import installer as installer_blueprint
-    
     app.register_blueprint(main_blueprint)
-    app.register_blueprint(installer_blueprint)
     
     return app 

@@ -4,148 +4,126 @@
 
 {% block content %}
 <div class="dashboard">
-    <!-- Calendar Section -->
-    <div class="calendar-section">
-        <!-- Calendar Controls -->
-        <div class="calendar-controls">
-            <button class="calendar-nav" onclick="prevMonth()">&lt; Previous</button>
-            <h2 id="currentMonth"></h2>
-            <button class="calendar-nav" onclick="nextMonth()">Next &gt;</button>
+    <h1>Daily Schedule</h1>
+    
+    {% if template %}
+        <div class="template-details">
+            <h3>{{ template.name }}</h3>
+            {% if template.description %}
+                <p>{{ template.description }}</p>
+            {% endif %}
+
+            <!-- Filter by User -->
+            <div class="filter-section">
+                <label>Filter by User:</label>
+                <select id="filter-user" onchange="filterTasks()">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Daily Schedule -->
+            {% for h in range(24) %}
+            {% set hour = (h + 6) % 24 %}
+                <div class="time-slot">
+                    <div class="time-label">
+                        {{ '%d:%02d %s'|format(
+                            (hour % 12) if (hour % 12) != 0 else 12,
+                            0,
+                            'AM' if hour < 12 else 'PM'
+                        ) }}
+                    </div>
+                    {% for task_assignment in template.task_assignments %}
+                        {% if task_assignment.scheduled_hour == hour %}
+                            <div class="task-item {% if task_assignment.completed %}completed{% endif %}"
+                                 data-user-id="{{ task_assignment.user_id or '' }}">
+                                {{ task_assignment.task.title }}
+                                <span class="task-time">
+                                    {{ '%d:%02d' % (task_assignment.scheduled_hour if task_assignment.scheduled_hour <= 12 else task_assignment.scheduled_hour-12, 
+                                    task_assignment.scheduled_minute) }} 
+                                    {{ 'AM' if task_assignment.scheduled_hour < 12 else 'PM' }}
+                                </span>
+                                <div class="task-actions">
+                                    {% if not task_assignment.completed %}
+                                        <form method="POST" action="{{ url_for('main.complete_template_task', assignment_id=task_assignment.id) }}" class="complete-form">
+                                            <button type="submit" class="complete-button">Complete</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="completed-text">✓ Completed</span>
+                                    {% endif %}
+                                    
+                                    <!-- Add Assign User dropdown -->
+                                    <div class="assign-user-section">
+                                        <select class="assign-user" onchange="assignUser(this, {{ task_assignment.id }})">
+                                            <option value="">Assign User</option>
+                                            {% for user in users %}
+                                                <option value="{{ user.id }}" 
+                                                        {% if task_assignment.user_id == user.id %}selected{% endif %}>
+                                                    {{ user.username }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endfor %}
         </div>
-        
-        <!-- Calendar Header -->
-        <div class="calendar-header">
-            <div>Monday</div>
-            <div>Tuesday</div>
-            <div>Wednesday</div>
-            <div>Thursday</div>
-            <div>Friday</div>
-            <div>Saturday</div>
-            <div>Sunday</div>
+    {% else %}
+        <div class="no-template-message">
+            <p>No day template assigned for today.</p>
+            <a href="{{ url_for('main.day_templates') }}" class="button">Assign Day Template</a>
         </div>
-        
-        <!-- Calendar Grid -->
-        <div class="calendar-grid" id="calendarGrid">
-            <!-- Calendar days will be populated by JavaScript -->
-        </div>
-    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Calendar data from server
-const templates = {{ templates|tojson|safe }};
-let currentDate = new Date();
+// Get the current date
+const currentDate = new Date();
+document.getElementById('currentDate').textContent = currentDate.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+});
 
-// Calendar rendering functions
-function renderCalendar() {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    updateMonthDisplay(month, year);
-    renderCalendarDays(year, month);
+// Function to handle user assignment
+function assignUser(select, taskId) {
+    const userId = select.value;
+    fetch(`/day_templates/assign_user/${taskId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Optional: Show success message
+        }
+    })
+    .catch(error => console.error('Error:', error));
 }
 
-function updateMonthDisplay(month, year) {
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"];
-    document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
-}
+function filterTasks() {
+    const selectedUserId = document.getElementById('filter-user').value;
+    const tasks = document.querySelectorAll('.task-item');
 
-function renderCalendarDays(year, month) {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    
-    // Get the day of week for the first day (0 = Sunday, 1 = Monday, etc.)
-    let firstDayOfWeek = firstDay.getDay();
-    firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Convert to Monday = 0
-    
-    const calendarGrid = document.getElementById('calendarGrid');
-    calendarGrid.innerHTML = '';
-    
-    // Add previous month days
-    renderPreviousMonthDays(year, month, firstDayOfWeek);
-    
-    // Add current month days
-    renderCurrentMonthDays(year, month, lastDay);
-    
-    // Add next month days
-    renderNextMonthDays(year, month, lastDay);
-}
-
-function renderPreviousMonthDays(year, month, firstDayOfWeek) {
-    for (let i = 0; i < firstDayOfWeek; i++) {
-        const prevMonthDay = new Date(year, month, -firstDayOfWeek + i + 1);
-        const dayDiv = createDayDiv(prevMonthDay, true);
-        calendarGrid.appendChild(dayDiv);
-    }
-}
-
-function renderCurrentMonthDays(year, month, lastDay) {
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day);
-        const dayDiv = createDayDiv(date, false);
-        calendarGrid.appendChild(dayDiv);
-    }
-}
-
-function renderNextMonthDays(year, month, lastDay) {
-    const lastDayOfWeek = lastDay.getDay();
-    const remainingDays = lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek;
-    for (let i = 1; i <= remainingDays; i++) {
-        const nextMonthDay = new Date(year, month + 1, i);
-        const dayDiv = createDayDiv(nextMonthDay, true);
-        calendarGrid.appendChild(dayDiv);
-    }
-}
-
-function createDayDiv(date, otherMonth) {
-    const div = document.createElement('div');
-    div.className = 'calendar-day' + (otherMonth ? ' other-month' : '');
-    
-    // Add today class if it's today
-    if (date.toDateString() === new Date().toDateString()) {
-        div.classList.add('today');
-    }
-    
-    // Add day number
-    const dayNumber = document.createElement('div');
-    dayNumber.className = 'day-number';
-    dayNumber.textContent = date.getDate();
-    div.appendChild(dayNumber);
-    
-    // Add templates for this date
-    addTemplateIndicators(div, date);
-    
-    return div;
-}
-
-function addTemplateIndicators(div, date) {
-    const dateString = date.toISOString().split('T')[0];
-    const dayTemplates = templates.filter(t => t.assigned_date === dateString);
-    
-    dayTemplates.forEach(template => {
-        const templateDiv = document.createElement('div');
-        templateDiv.className = 'template-indicator';
-        templateDiv.textContent = template.name;
-        templateDiv.onclick = () => window.location.href = `/day_templates/${template.id}`;
-        div.appendChild(templateDiv);
+    tasks.forEach(task => {
+        const userId = task.getAttribute('data-user-id');
+        if (selectedUserId === '' || userId === selectedUserId) {
+            task.style.display = 'block';
+        } else {
+            task.style.display = 'none';
+        }
     });
 }
-
-// Navigation functions
-function prevMonth() {
-    currentDate.setMonth(currentDate.getMonth() - 1);
-    renderCalendar();
-}
-
-function nextMonth() {
-    currentDate.setMonth(currentDate.getMonth() + 1);
-    renderCalendar();
-}
-
-// Initialize calendar
-document.addEventListener('DOMContentLoaded', renderCalendar);
 </script>
 {% endblock %} 

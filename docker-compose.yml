@@ -3,31 +3,42 @@ version: '3.8'
 services:
   web:
     build: .
+    restart: unless-stopped
     ports:
       - "5000:5000"
+    environment:
+      - SQLALCHEMY_DATABASE_URI=postgresql://farmtasks:farmtasks@db:5432/farmtasks_db
+      - SECRET_KEY=your-secret-key-here
+      - FLASK_APP=run.py
+      - FLASK_ENV=production
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      - FLASK_APP=run.py
-      - FLASK_ENV=production
     volumes:
       - ./instance:/app/instance
+    networks:
+      - farmtasks_network
 
   db:
     image: postgres:14
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: farmtasks_user
-      POSTGRES_PASSWORD: farmtasks_password
-      POSTGRES_DB: farmtasks_data
+      - POSTGRES_USER=farmtasks
+      - POSTGRES_PASSWORD=farmtasks
+      - POSTGRES_DB=farmtasks_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U farmtasks_user -d farmtasks_data"]
+      test: ["CMD-SHELL", "pg_isready -U farmtasks -d farmtasks_db"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - farmtasks_network
+
+networks:
+  farmtasks_network:
+    driver: bridge
 
 volumes:
   postgres_data:
-    name: farmtasks_postgres_data
