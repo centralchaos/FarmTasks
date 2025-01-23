@@ -4,11 +4,10 @@ services:
   web:
     build: .
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    network_mode: "host"
     environment:
-      - SQLALCHEMY_DATABASE_URI=postgresql://farmtasks:farmtasks@db:5432/farmtasks_db
-      - SECRET_KEY=your-secret-key-here
+      - SQLALCHEMY_DATABASE_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
       - FLASK_APP=run.py
       - FLASK_ENV=production
     depends_on:
@@ -16,29 +15,23 @@ services:
         condition: service_healthy
     volumes:
       - ./instance:/app/instance
-    networks:
-      - farmtasks_network
 
   db:
     image: postgres:14
     restart: unless-stopped
+    network_mode: "host"
     environment:
-      - POSTGRES_USER=farmtasks
-      - POSTGRES_PASSWORD=farmtasks
-      - POSTGRES_DB=farmtasks_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PGPORT=5433
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U farmtasks -d farmtasks_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -p 5433"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - farmtasks_network
-
-networks:
-  farmtasks_network:
-    driver: bridge
 
 volumes:
   postgres_data:
